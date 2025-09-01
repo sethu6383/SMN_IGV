@@ -451,18 +451,77 @@ def main():
         print(f"❌ Integration test failed: {e}")
         all_passed = False
     
+    # Test 5: Configuration and file structure test
+    print("\nTesting file structure...")
+    try:
+        test_file_structure()
+        print("✓ File structure test passed")
+    except Exception as e:
+        print(f"❌ File structure test failed: {e}")
+        all_passed = False
+    
     # Final summary
     print("\n" + "=" * 40)
     if all_passed:
         print("🎉 All tests passed! Pipeline is ready for use.")
         print("\nNext steps:")
         print("1. Update SMN coordinates in config/config.json if needed")
-        print("2. Add MLPA validation data")
-        print("3. Test with real BAM files")
-        print("4. Run batch processing")
+        print("2. Add MLPA validation data to improve accuracy")
+        print("3. Test with real BAM files:")
+        print("   python3 smn_pipeline.py -c config/config.json -i sample.bam -o test_output -s sample_001")
+        print("4. Run batch processing when ready:")
+        print("   ./run_batch_advanced.sh -i /path/to/bams -o results")
+        print("\n📚 See QUICKSTART.md for detailed usage instructions")
     else:
         print("❌ Some tests failed. Please fix issues before using the pipeline.")
+        print("\n🔧 Common fixes:")
+        print("- Install missing dependencies: pip3 install -r requirements.txt")
+        print("- Check file permissions: chmod +x *.sh")
+        print("- Validate configuration: check config/config.json")
         sys.exit(1)
+
+def test_file_structure():
+    """Test that all required files are present"""
+    print("Checking file structure...")
+    
+    required_files = [
+        'smn_pipeline.py',
+        'config/config.json',
+        'setup.sh',
+        'validate_pipeline.py',
+        'requirements.txt',
+        'README.md',
+        'QUICKSTART.md',
+        'src/__init__.py',
+        'src/depth_analyzer.py',
+        'src/cnv_caller.py',
+        'src/igv_automation.py',
+        'src/ml_threshold.py',
+        'src/report_generator.py',
+        'src/utils.py'
+    ]
+    
+    missing_files = []
+    for file_path in required_files:
+        if not os.path.exists(file_path):
+            missing_files.append(file_path)
+    
+    if missing_files:
+        raise Exception(f"Missing required files: {missing_files}")
+    
+    print("✓ All required files present")
+    
+    # Check directory structure
+    required_dirs = ['src', 'config', 'models', 'output', 'reports', 'snapshots', 'logs', 'temp', 'tests']
+    missing_dirs = []
+    for dir_path in required_dirs:
+        if not os.path.exists(dir_path):
+            missing_dirs.append(dir_path)
+    
+    if missing_dirs:
+        print(f"⚠️ Missing directories (will be created): {missing_dirs}")
+    else:
+        print("✓ All required directories present")
 
 if __name__ == "__main__":
     main()
