@@ -1,0 +1,152 @@
+{
+  "pipeline_version": "1.0.0",
+  "reference_genome": "hg38",
+  
+  "directories": {
+    "output_dir": "output",
+    "reports": "reports",
+    "igv_snapshots": "snapshots",
+    "model_dir": "models",
+    "temp_dir": "temp",
+    "logs": "logs"
+  },
+  
+  "igv_settings": {
+    "igv_path": "igv.sh",
+    "igv_memory": "4g",
+    "snapshot_format": "png",
+    "snapshot_width": 1200,
+    "snapshot_height": 800,
+    "timeout": 300
+  },
+  
+  "smn_coordinates": {
+    "smn1_exon7": {
+      "chr": "chr5",
+      "start": 70247724,
+      "end": 70247775,
+      "strand": "-",
+      "gene": "SMN1"
+    },
+    "smn1_exon8": {
+      "chr": "chr5", 
+      "start": 70248935,
+      "end": 70249306,
+      "strand": "-",
+      "gene": "SMN1"
+    },
+    "smn2_exon7": {
+      "chr": "chr5",
+      "start": 69372304,
+      "end": 69372355,
+      "strand": "-",
+      "gene": "SMN2"
+    },
+    "smn2_exon8": {
+      "chr": "chr5",
+      "start": 69373515,
+      "end": 69373886,
+      "strand": "-",
+      "gene": "SMN2"
+    }
+  },
+  
+  "control_genes": {
+    "actb_exon1": {
+      "chr": "chr7",
+      "start": 5527147,
+      "end": 5527252,
+      "gene": "ACTB"
+    },
+    "gapdh_exon1": {
+      "chr": "chr12",
+      "start": 6534405,
+      "end": 6534516,
+      "gene": "GAPDH"
+    },
+    "tbp_exon1": {
+      "chr": "chr6",
+      "start": 170554001,
+      "end": 170554099,
+      "gene": "TBP"
+    }
+  },
+  
+  "quality_thresholds": {
+    "min_mapq": 20,
+    "min_baseq": 20,
+    "min_depth": 10,
+    "max_depth": 1000,
+    "min_coverage_uniformity": 0.3,
+    "max_zero_depth_fraction": 0.8,
+    "min_mapping_rate": 0.90
+  },
+  
+  "cnv_thresholds": {
+    "depth_ratio": {
+      "homo_del_threshold": 0.3,
+      "hetero_del_threshold": 0.7,
+      "dup_threshold": 1.5,
+      "normal_range": [0.7, 1.3]
+    },
+    "statistical": {
+      "zscore_threshold": 2.0,
+      "pvalue_threshold": 0.05,
+      "bootstrap_iterations": 1000
+    },
+    "ensemble": {
+      "confidence_threshold": 0.8,
+      "min_method_agreement": 2
+    }
+  },
+  
+  "ml_optimization": {
+    "enabled": true,
+    "min_samples_for_training": 20,
+    "retrain_interval": 50,
+    "target_accuracy": 0.95,
+    "max_optimization_time": 600,
+    "cross_validation_folds": 5,
+    "feature_selection": true,
+    "hyperparameter_optimization": true
+  },
+  
+  "processing": {
+    "threads": 4,
+    "chunk_size": 10,
+    "memory_limit_gb": 8,
+    "timeout_per_sample": 1800,
+    "retry_failed_samples": true,
+    "max_retries": 2
+  },
+  
+  "output_formats": {
+    "generate_html": true,
+    "generate_tsv": true,
+    "generate_json": false,
+    "include_igv_snapshots": true,
+    "include_method_details": true,
+    "compress_outputs": false
+  },
+  
+  "validation": {
+    "validation_data_file": null,
+    "validate_against_mlpa": true,
+    "cross_validate_methods": true,
+    "generate_validation_report": true
+  },
+  
+  "clinical_interpretation": {
+    "include_recommendations": true,
+    "include_literature_references": true,
+    "risk_stratification": true,
+    "family_planning_advice": true
+  },
+  
+  "debug": {
+    "save_intermediate_files": false,
+    "verbose_logging": false,
+    "profile_performance": false,
+    "generate_debug_plots": false
+  }
+}
