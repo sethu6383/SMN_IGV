@@ -1,0 +1,36 @@
+# SMN CNV Pipeline Requirements
+# Core bioinformatics packages
+pysam>=0.21.0
+numpy>=1.21.0
+pandas>=1.5.0
+scipy>=1.9.0
+
+# Machine learning
+scikit-learn>=1.1.0
+optuna>=3.0.0
+joblib>=1.2.0
+
+# Visualization and reporting
+plotly>=5.10.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+jinja2>=3.0.0
+
+# System utilities
+psutil>=5.8.0
+tqdm>=4.64.0
+pathlib2>=2.3.7
+
+# Optional enhanced features
+biopython>=1.79
+pyvcf>=0.6.8
+
+# Development and testing (optional)
+pytest>=7.0.0
+pytest-cov>=4.0.0
+black>=22.0.0
+flake8>=5.0.0
+
+# For improved performance (optional)
+numba>=0.56.0
+cython>=0.29.0
