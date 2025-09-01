@@ -953,6 +953,601 @@ class ReportGenerator:
         df.to_csv(tsv_file, sep='\t', index=False)
         
         return str(tsv_file)
+
+class ClinicalReportGenerator:
+    """Specialized clinical report generator with enhanced interpretations"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+        
+        # Clinical guidelines and references
+        self.clinical_guidelines = self._load_enhanced_clinical_guidelines()
+        
+    def _load_enhanced_clinical_guidelines(self) -> Dict:
+        """Load enhanced clinical interpretation guidelines"""
+        return {
+            'sma_types': {
+                'type1': {
+                    'description': 'Severe infantile SMA (Werdnig-Hoffmann disease)',
+                    'onset': '0-6 months',
+                    'motor_milestones': 'Never sits without support',
+                    'life_expectancy': '<2 years without intervention',
+                    'smn1_copies': 0,
+                    'smn2_copies': '1-2'
+                },
+                'type2': {
+                    'description': 'Intermediate SMA (Dubowitz disease)',
+                    'onset': '6-18 months',
+                    'motor_milestones': 'Sits without support, never walks',
+                    'life_expectancy': 'Variable, often into adulthood',
+                    'smn1_copies': 0,
+                    'smn2_copies': '3'
+                },
+                'type3': {
+                    'description': 'Mild SMA (Kugelberg-Welander disease)',
+                    'onset': '>18 months',
+                    'motor_milestones': 'Walks independently',
+                    'life_expectancy': 'Normal or near-normal',
+                    'smn1_copies': 0,
+                    'smn2_copies': '4+'
+                },
+                'type4': {
+                    'description': 'Adult-onset SMA',
+                    'onset': '>30 years',
+                    'motor_milestones': 'Normal development initially',
+                    'life_expectancy': 'Normal',
+                    'smn1_copies': 0,
+                    'smn2_copies': '4+'
+                }
+            },
+            'therapeutic_options': {
+                'nusinersen': {
+                    'name': 'Nusinersen (Spinraza)',
+                    'mechanism': 'Antisense oligonucleotide',
+                    'indication': 'All SMA types',
+                    'administration': 'Intrathecal injection'
+                },
+                'onasemnogene': {
+                    'name': 'Onasemnogene abeparvovec (Zolgensma)',
+                    'mechanism': 'Gene replacement therapy',
+                    'indication': 'SMA Type 1, <2 years old',
+                    'administration': 'Single IV infusion'
+                },
+                'risdiplam': {
+                    'name': 'Risdiplam (Evrysdi)',
+                    'mechanism': 'SMN2 splicing modifier',
+                    'indication': 'All SMA types, >2 months old',
+                    'administration': 'Oral daily'
+                }
+            },
+            'genetic_counseling_points': [
+                'SMA is inherited in an autosomal recessive manner',
+                'Carrier frequency is approximately 1 in 50-60 individuals',
+                'Risk for SMA in offspring depends on partner carrier status',
+                'Prenatal and preimplantation genetic testing available',
+                'Family cascade testing recommended for at-risk relatives'
+            ]
+        }
+    
+    def generate_clinical_summary(self, cnv_results: Dict, patient_info: Dict = None) -> Dict:
+        """Generate comprehensive clinical summary"""
+        
+        sma_risk = cnv_results.get('sma_risk', 'UNCERTAIN')
+        
+        # Determine likely SMA type based on SMN2 copies (if available)
+        predicted_sma_type = self._predict_sma_type(cnv_results)
+        
+        # Generate clinical recommendations
+        clinical_recommendations = self._generate_clinical_recommendations(sma_risk, predicted_sma_type)
+        
+        # Generate follow-up actions
+        follow_up_actions = self._generate_follow_up_actions(sma_risk, cnv_results)
+        
+        return {
+            'sma_risk_level': sma_risk,
+            'predicted_sma_type': predicted_sma_type,
+            'clinical_recommendations': clinical_recommendations,
+            'follow_up_actions': follow_up_actions,
+            'genetic_counseling_indicated': sma_risk in ['HIGH_RISK', 'CARRIER'],
+            'urgent_referral_needed': sma_risk == 'HIGH_RISK',
+            'therapeutic_options': self._get_therapeutic_options(sma_risk, predicted_sma_type),
+            'family_testing_recommended': sma_risk in ['HIGH_RISK', 'CARRIER']
+        }
+    
+    def _predict_sma_type(self, cnv_results: Dict) -> Optional[str]:
+        """Predict likely SMA type based on copy number results"""
+        
+        smn1_ex7 = cnv_results.get('smn1_exon7', {}).get('call', 'NORMAL')
+        smn1_ex8 = cnv_results.get('smn1_exon8', {}).get('call', 'NORMAL')
+        smn2_ex7 = cnv_results.get('smn2_exon7', {}).get('call', 'NORMAL')
+        smn2_ex8 = cnv_results.get('smn2_exon8', {}).get('call', 'NORMAL')
+        
+        # Only predict if SMN1 is deleted
+        if not (smn1_ex7 in ['HOMO_DEL', 'HETERO_DEL'] or smn1_ex8 in ['HOMO_DEL', 'HETERO_DEL']):
+            return None
+        
+        # Estimate SMN2 copies (simplified - would need more sophisticated analysis in practice)
+        smn2_copies = 0
+        if smn2_ex7 == 'NORMAL':
+            smn2_copies += 2
+        elif smn2_ex7 == 'DUP':
+            smn2_copies += 3
+        elif smn2_ex7 == 'HETERO_DEL':
+            smn2_copies += 1
+        
+        if smn2_ex8 == 'NORMAL':
+            smn2_copies += 2
+        elif smn2_ex8 == 'DUP':
+            smn2_copies += 3
+        elif smn2_ex8 == 'HETERO_DEL':
+            smn2_copies += 1
+        
+        # Average SMN2 copies
+        estimated_smn2_copies = smn2_copies / 2
+        
+        # Predict SMA type based on SMN2 copies
+        if estimated_smn2_copies <= 2:
+            return 'type1'
+        elif estimated_smn2_copies == 3:
+            return 'type2'
+        elif estimated_smn2_copies >= 4:
+            return 'type3'
+        
+        return 'uncertain'
+    
+    def _generate_clinical_recommendations(self, sma_risk: str, predicted_sma_type: Optional[str]) -> List[str]:
+        """Generate clinical recommendations based on results"""
+        
+        recommendations = []
+        
+        if sma_risk == 'HIGH_RISK':
+            recommendations.extend([
+                'URGENT: Refer to neurology/genetics specialist immediately',
+                'Consider confirmatory testing with MLPA or qPCR',
+                'Genetic counseling strongly recommended',
+                'Discuss therapeutic options if diagnosis confirmed',
+                'Family cascade testing recommended'
+            ])
+            
+            if predicted_sma_type:
+                sma_info = self.clinical_guidelines['sma_types'].get(predicted_sma_type, {})
+                if predicted_sma_type == 'type1':
+                    recommendations.extend([
+                        'Early intervention critical - consider immediate therapy',
+                        'Respiratory and nutritional support may be needed',
+                        'Discuss prognosis and quality of life considerations'
+                    ])
+                elif predicted_sma_type in ['type2', 'type3']:
+                    recommendations.extend([
+                        'Discuss long-term management and prognosis',
+                        'Physical therapy and supportive care planning',
+                        'Monitor for disease progression'
+                    ])
+        
+        elif sma_risk == 'CARRIER':
+            recommendations.extend([
+                'Genetic counseling recommended for family planning',
+                'Partner testing recommended before conception',
+                'Discuss reproductive options if partner is also carrier',
+                'Family cascade testing may be appropriate',
+                'No immediate medical intervention needed'
+            ])
+        
+        elif sma_risk == 'LOW_RISK':
+            recommendations.extend([
+                'No further SMA-specific testing typically required',
+                'Routine genetic counseling if family history present',
+                'Results consistent with normal SMA risk'
+            ])
+        
+        elif sma_risk == 'UNCERTAIN':
+            recommendations.extend([
+                'Consider orthogonal testing methods (MLPA, qPCR)',
+                'Genetic counseling recommended for interpretation',
+                'Clinical correlation advised',
+                'May require repeat testing or additional analysis'
+            ])
+        
+        return recommendations
+    
+    def _generate_follow_up_actions(self, sma_risk: str, cnv_results: Dict) -> List[Dict]:
+        """Generate specific follow-up actions with timelines"""
+        
+        actions = []
+        
+        if sma_risk == 'HIGH_RISK':
+            actions.extend([
+                {
+                    'action': 'Specialist referral',
+                    'specialty': 'Neurology/Genetics',
+                    'urgency': 'Urgent (within 1-2 weeks)',
+                    'purpose': 'Confirm diagnosis and discuss management'
+                },
+                {
+                    'action': 'Confirmatory testing',
+                    'test': 'MLPA or quantitative PCR',
+                    'urgency': 'Urgent (within 1 week)',
+                    'purpose': 'Validate WES findings'
+                },
+                {
+                    'action': 'Genetic counseling',
+                    'urgency': 'Urgent (within 1-2 weeks)',
+                    'purpose': 'Discuss implications and family planning'
+                }
+            ])
+        
+        elif sma_risk == 'CARRIER':
+            actions.extend([
+                {
+                    'action': 'Genetic counseling',
+                    'urgency': 'Routine (within 4-6 weeks)',
+                    'purpose': 'Discuss carrier status and family planning'
+                },
+                {
+                    'action': 'Partner testing',
+                    'urgency': 'Before conception if planning pregnancy',
+                    'purpose': 'Assess recurrence risk'
+                },
+                {
+                    'action': 'Family screening',
+                    'urgency': 'As appropriate',
+                    'purpose': 'Identify other at-risk family members'
+                }
+            ])
+        
+        elif sma_risk == 'UNCERTAIN':
+            actions.extend([
+                {
+                    'action': 'Repeat/confirmatory testing',
+                    'test': 'MLPA or alternative method',
+                    'urgency': 'Routine (within 2-4 weeks)',
+                    'purpose': 'Clarify uncertain results'
+                },
+                {
+                    'action': 'Genetic counseling',
+                    'urgency': 'Routine (within 4 weeks)',
+                    'purpose': 'Interpret results and discuss next steps'
+                }
+            ])
+        
+        # Check for quality issues that might affect interpretation
+        quality_issues = self._assess_result_quality(cnv_results)
+        if quality_issues:
+            actions.append({
+                'action': 'Technical review',
+                'urgency': 'Routine',
+                'purpose': f'Address quality concerns: {"; ".join(quality_issues)}'
+            })
+        
+        return actions
+    
+    def _assess_result_quality(self, cnv_results: Dict) -> List[str]:
+        """Assess quality issues that might affect clinical interpretation"""
+        
+        quality_issues = []
+        
+        for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']:
+            if region in cnv_results:
+                confidence = cnv_results[region].get('confidence', 0)
+                
+                if confidence < 0.7:
+                    quality_issues.append(f"Low confidence for {region}")
+                
+                # Check for method disagreement if available
+                methods = cnv_results[region].get('methods', {})
+                if len(methods) > 1:
+                    calls = [m.get('call') for m in methods.values() if 'call' in m]
+                    if len(set(calls)) > 1:  # Disagreement between methods
+                        quality_issues.append(f"Method disagreement for {region}")
+        
+        return quality_issues
+    
+    def _get_therapeutic_options(self, sma_risk: str, predicted_sma_type: Optional[str]) -> List[Dict]:
+        """Get relevant therapeutic options"""
+        
+        if sma_risk != 'HIGH_RISK':
+            return []
+        
+        therapeutic_options = []
+        
+        for therapy_id, therapy_info in self.clinical_guidelines['therapeutic_options'].items():
+            # Add all therapies for high-risk patients with appropriate indications
+            therapeutic_options.append({
+                'name': therapy_info['name'],
+                'mechanism': therapy_info['mechanism'],
+                'indication': therapy_info['indication'],
+                'administration': therapy_info['administration'],
+                'note': 'Consult specialist for eligibility and timing'
+            })
+        
+        return therapeutic_options
+
+class QualityMetricsReporter:
+    """Generates quality metrics reports for batches and individual samples"""
+    
+    def __init__(self, config: Dict):
+        self.config = config
+        self.logger = logging.getLogger(__name__)
+    
+    def generate_batch_quality_report(self, batch_results: List[Dict]) -> Dict:
+        """Generate comprehensive quality metrics for a batch"""
+        
+        valid_results = [r for r in batch_results if 'error' not in r]
+        
+        if not valid_results:
+            return {'error': 'No valid results for quality analysis'}
+        
+        # Collect metrics
+        depth_metrics = self._collect_depth_metrics(valid_results)
+        confidence_metrics = self._collect_confidence_metrics(valid_results)
+        coverage_metrics = self._collect_coverage_metrics(valid_results)
+        quality_scores = self._calculate_quality_scores(valid_results)
+        
+        # Generate summary statistics
+        quality_report = {
+            'batch_summary': {
+                'total_samples': len(batch_results),
+                'valid_samples': len(valid_results),
+                'failed_samples': len(batch_results) - len(valid_results),
+                'success_rate': len(valid_results) / len(batch_results)
+            },
+            'depth_metrics': depth_metrics,
+            'confidence_metrics': confidence_metrics,
+            'coverage_metrics': coverage_metrics,
+            'quality_scores': quality_scores,
+            'recommendations': self._generate_quality_recommendations(valid_results)
+        }
+        
+        return quality_report
+    
+    def _collect_depth_metrics(self, results: List[Dict]) -> Dict:
+        """Collect depth metrics across samples"""
+        
+        depth_data = {region: [] for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']}
+        normalized_depth_data = {region: [] for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']}
+        
+        for result in results:
+            depth_metrics = result.get('depth_metrics', {})
+            
+            for region in depth_data.keys():
+                if region in depth_metrics:
+                    depth_data[region].append(depth_metrics[region].get('mean_depth', 0))
+                    
+                normalized_depths = depth_metrics.get('normalized_depths', {})
+                if region in normalized_depths:
+                    normalized_depth_data[region].append(normalized_depths[region].get('normalized_depth', 1.0))
+        
+        # Calculate statistics
+        depth_stats = {}
+        for region, depths in depth_data.items():
+            if depths:
+                depth_stats[region] = {
+                    'mean': np.mean(depths),
+                    'median': np.median(depths),
+                    'std': np.std(depths),
+                    'min': np.min(depths),
+                    'max': np.max(depths),
+                    'samples': len(depths)
+                }
+        
+        normalized_depth_stats = {}
+        for region, depths in normalized_depth_data.items():
+            if depths:
+                normalized_depth_stats[region] = {
+                    'mean': np.mean(depths),
+                    'median': np.median(depths),
+                    'std': np.std(depths),
+                    'cv': np.std(depths) / np.mean(depths) if np.mean(depths) > 0 else 0,
+                    'samples': len(depths)
+                }
+        
+        return {
+            'raw_depths': depth_stats,
+            'normalized_depths': normalized_depth_stats
+        }
+    
+    def _collect_confidence_metrics(self, results: List[Dict]) -> Dict:
+        """Collect confidence metrics across samples"""
+        
+        confidence_data = {region: [] for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']}
+        
+        for result in results:
+            cnv_calls = result.get('cnv_calls', {})
+            
+            for region in confidence_data.keys():
+                if region in cnv_calls:
+                    confidence_data[region].append(cnv_calls[region].get('confidence', 0))
+        
+        # Calculate statistics
+        confidence_stats = {}
+        for region, confidences in confidence_data.items():
+            if confidences:
+                confidence_stats[region] = {
+                    'mean': np.mean(confidences),
+                    'median': np.median(confidences),
+                    'min': np.min(confidences),
+                    'max': np.max(confidences),
+                    'high_confidence': sum(1 for c in confidences if c > 0.8) / len(confidences),
+                    'low_confidence': sum(1 for c in confidences if c < 0.5) / len(confidences),
+                    'samples': len(confidences)
+                }
+        
+        return confidence_stats
+    
+    def _collect_coverage_metrics(self, results: List[Dict]) -> Dict:
+        """Collect coverage quality metrics"""
+        
+        coverage_data = {
+            'mapping_rates': [],
+            'mean_mapqs': [],
+            'coverage_uniformity': {region: [] for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']}
+        }
+        
+        for result in results:
+            depth_metrics = result.get('depth_metrics', {})
+            overall = depth_metrics.get('overall', {})
+            
+            # Overall metrics
+            coverage_data['mapping_rates'].append(overall.get('mapping_rate', 0))
+            coverage_data['mean_mapqs'].append(overall.get('mean_mapq', 0))
+            
+            # Region-specific coverage uniformity
+            for region in coverage_data['coverage_uniformity'].keys():
+                if region in depth_metrics:
+                    uniformity = depth_metrics[region].get('coverage_uniformity', 0)
+                    coverage_data['coverage_uniformity'][region].append(uniformity)
+        
+        # Calculate statistics
+        coverage_stats = {
+            'mapping_rate': {
+                'mean': np.mean(coverage_data['mapping_rates']),
+                'min': np.min(coverage_data['mapping_rates']),
+                'samples_below_95': sum(1 for r in coverage_data['mapping_rates'] if r < 0.95)
+            },
+            'mean_mapq': {
+                'mean': np.mean(coverage_data['mean_mapqs']),
+                'min': np.min(coverage_data['mean_mapqs']),
+                'samples_below_30': sum(1 for m in coverage_data['mean_mapqs'] if m < 30)
+            },
+            'coverage_uniformity': {}
+        }
+        
+        for region, uniformities in coverage_data['coverage_uniformity'].items():
+            if uniformities:
+                coverage_stats['coverage_uniformity'][region] = {
+                    'mean': np.mean(uniformities),
+                    'min': np.min(uniformities),
+                    'samples_below_80': sum(1 for u in uniformities if u < 0.8) / len(uniformities)
+                }
+        
+        return coverage_stats
+    
+    def _calculate_quality_scores(self, results: List[Dict]) -> Dict:
+        """Calculate overall quality scores for samples"""
+        
+        quality_scores = []
+        region_quality = {region: [] for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']}
+        
+        for result in results:
+            sample_quality = self._calculate_sample_quality_score(result)
+            quality_scores.append(sample_quality['overall'])
+            
+            for region, score in sample_quality['regions'].items():
+                if region in region_quality:
+                    region_quality[region].append(score)
+        
+        # Overall quality distribution
+        quality_distribution = {
+            'high_quality': sum(1 for q in quality_scores if q > 0.8) / len(quality_scores),
+            'medium_quality': sum(1 for q in quality_scores if 0.6 <= q <= 0.8) / len(quality_scores),
+            'low_quality': sum(1 for q in quality_scores if q < 0.6) / len(quality_scores),
+            'mean_score': np.mean(quality_scores)
+        }
+        
+        # Region quality scores
+        region_quality_stats = {}
+        for region, scores in region_quality.items():
+            if scores:
+                region_quality_stats[region] = {
+                    'mean': np.mean(scores),
+                    'min': np.min(scores),
+                    'max': np.max(scores)
+                }
+        
+        return {
+            'distribution': quality_distribution,
+            'region_quality': region_quality_stats
+        }
+    
+    def _calculate_sample_quality_score(self, result: Dict) -> Dict:
+        """Calculate quality score for individual sample"""
+        
+        depth_metrics = result.get('depth_metrics', {})
+        cnv_calls = result.get('cnv_calls', {})
+        overall = depth_metrics.get('overall', {})
+        
+        # Overall quality factors
+        mapping_rate_score = min(1.0, overall.get('mapping_rate', 0) / 0.95)
+        mapq_score = min(1.0, overall.get('mean_mapq', 0) / 40.0)
+        
+        region_scores = {}
+        region_quality_factors = []
+        
+        for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']:
+            if region in depth_metrics and region in cnv_calls:
+                # Region-specific quality factors
+                uniformity = depth_metrics[region].get('coverage_uniformity', 0)
+                depth = depth_metrics[region].get('mean_depth', 0)
+                confidence = cnv_calls[region].get('confidence', 0)
+                
+                depth_score = min(1.0, depth / 20.0)  # Target depth 20x
+                uniformity_score = uniformity
+                confidence_score = confidence
+                
+                region_score = np.mean([depth_score, uniformity_score, confidence_score, mapping_rate_score, mapq_score])
+                region_scores[region] = region_score
+                region_quality_factors.append(region_score)
+        
+        overall_score = np.mean(region_quality_factors) if region_quality_factors else 0
+        
+        return {
+            'overall': overall_score,
+            'regions': region_scores
+        }
+    
+    def _generate_quality_recommendations(self, results: List[Dict]) -> List[str]:
+        """Generate quality improvement recommendations"""
+        
+        recommendations = []
+        
+        # Analyze common issues
+        low_mapping_samples = 0
+        low_depth_samples = 0
+        low_confidence_samples = 0
+        
+        for result in results:
+            depth_metrics = result.get('depth_metrics', {})
+            cnv_calls = result.get('cnv_calls', {})
+            overall = depth_metrics.get('overall', {})
+            
+            if overall.get('mapping_rate', 1.0) < 0.95:
+                low_mapping_samples += 1
+            
+            # Check for low depth in SMN regions
+            smn_depths = []
+            for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']:
+                if region in depth_metrics:
+                    smn_depths.append(depth_metrics[region].get('mean_depth', 0))
+            
+            if smn_depths and np.mean(smn_depths) < 15:
+                low_depth_samples += 1
+            
+            # Check for low confidence calls
+            confidences = []
+            for region in ['smn1_exon7', 'smn1_exon8', 'smn2_exon7', 'smn2_exon8']:
+                if region in cnv_calls:
+                    confidences.append(cnv_calls[region].get('confidence', 0))
+            
+            if confidences and np.mean(confidences) < 0.7:
+                low_confidence_samples += 1
+        
+        total_samples = len(results)
+        
+        # Generate recommendations
+        if low_mapping_samples > total_samples * 0.1:
+            recommendations.append(f"High mapping rate issues ({low_mapping_samples} samples) - check library prep and alignment parameters")
+        
+        if low_depth_samples > total_samples * 0.1:
+            recommendations.append(f"Low depth in SMN regions ({low_depth_samples} samples) - consider targeted enrichment or increased sequencing depth")
+        
+        if low_confidence_samples > total_samples * 0.2:
+            recommendations.append(f"Low confidence calls ({low_confidence_samples} samples) - review with orthogonal methods")
+        
+        if not recommendations:
+            recommendations.append("Overall good quality metrics across the batch")
+        
+        return recommendations
     
     def _create_batch_tsv(self, batch_results: List[Dict], batch_dir: Path, timestamp: str) -> str:
         """Create consolidated TSV for batch"""
